@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "solar",
+  "version": "${version}",
+  "name": "Solar Apocalypse",
+  "description": "A server-side mod that adds a Solar Apocalypse game mode",
+  "authors": ["CodeCracked"],
+  "contact": {
+    "homepage": "https://github.com/CodeCracked/Solar-Apocalypse",
+    "issues": "https://github.com/CodeCracked/Solar-Apocalypse/issues",
+    "sources": "https://github.com/CodeCracked/Solar-Apocalypse"
+  },
+  "license": "GPL-3.0",
+  "icon": "assets/solar/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "solar.SolarApocalypseMod"
+    ]
+  },
+  "mixins": [
+    "solar.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": ">=${fabric_version}",
+    "minecraft": "${target_minecraft_versions}"
+  },
+  "custom": {
+    "updatesFile": "https://raw.githubusercontent.com/CodeCracked/Solar-Apocalypse/master/updates.ini"
+  }
+}
