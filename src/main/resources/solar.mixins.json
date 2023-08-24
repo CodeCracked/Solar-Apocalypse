@@ -4,12 +4,13 @@
   "package": "solar.mixins",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
-
+    "ChunkMixin",
+    "ChunkSerializerMixin",
+    "ThreadedAnvilChunkStorageMixin"
   ],
   "client": [
-
   ],
   "injectors": {
     "defaultRequire": 1
-	}
+  }
 }

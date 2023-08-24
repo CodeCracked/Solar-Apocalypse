@@ -3,12 +3,14 @@ package solar;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.random.Random;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import solar.commands.SolarCommand;
 import solar.utils.VersionChecker;
 
 public class SolarApocalypseMod implements ModInitializer, ClientModInitializer
@@ -22,7 +24,9 @@ public class SolarApocalypseMod implements ModInitializer, ClientModInitializer
     @Override
     public void onInitialize()
     {
+        SolarManager.init();
     
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> SolarCommand.register(dispatcher));
     }
     @Override
     public void onInitializeClient()
