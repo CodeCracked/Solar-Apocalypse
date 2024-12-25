@@ -24,7 +24,7 @@
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric": ">=${fabric_version}",
-    "minecraft": "${target_minecraft_versions}"
+    "minecraft": "${minecraft_version}"
   },
   "custom": {
     "updatesFile": "https://raw.githubusercontent.com/CodeCracked/Solar-Apocalypse/master/updates.ini"

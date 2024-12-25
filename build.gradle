@@ -1,8 +1,6 @@
-import com.github.jengelman.gradle.plugins.shadow.tasks.ConfigureShadowRelocation
-
 plugins {
-    id 'com.github.johnrengelman.shadow' version '7.1.2'
-    id 'fabric-loom' version '1.0-SNAPSHOT'
+    id 'fabric-loom' version '1.9-SNAPSHOT'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
     id 'maven-publish'
     id 'java'
 }
@@ -10,22 +8,33 @@ plugins {
 version = project.mod_version + '.' + project.mod_patch + '-' + project.minecraft_version
 group = project.maven_group
 
+loom {
+    // accessWidenerPath = file("src/main/resources/solar.accesswidener")
+}
+
 // Dependency Maven Repositories
 repositories {
     maven {
         name "tterrag maven"
         url "https://maven.tterrag.com/"
     }
+    maven { url 'https://maven.terraformersmc.com/releases/' }
 }
 
 configurations {
+    shadeIntransitive {
+        transitive = false
+    }
     shade
+
+    implementation.extendsFrom shadeIntransitive
     implementation.extendsFrom shade
 }
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
     // Mod Dependencies
@@ -36,7 +45,7 @@ dependencies {
 processResources {
     def variables = [
             "version": project.version,
-            "target_minecraft_versions": project.target_minecraft_versions,
+            "minecraft_version": project.minecraft_version,
             "loader_version": project.loader_version,
             "fabric_version": project.fabric_version
     ]
@@ -49,50 +58,49 @@ processResources {
 }
 
 // Apply correct Java version
-def targetJavaVersion = 17
 tasks.withType(JavaCompile).configureEach {
     it.options.encoding = "UTF-8"
-    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
-        it.options.release = targetJavaVersion
-    }
+    it.options.release = 21
 }
 
 java {
-    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
-    if (JavaVersion.current() < javaVersion) {
-        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
     }
+
     archivesBaseName = project.archive_base_name
-    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-    // if it is present.
-    // If you remove this line, sources will not be generated.
     withSourcesJar()
+
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 // Shadow Configuration
 shadowJar {
-    classifier = 'shadow'
-    configurations = [project.configurations.shade]
+    archiveClassifier = 'shadow'
+    configurations = [project.configurations.shade, project.configurations.shadeIntransitive]
 
+    exclude 'org/codehaus/commons/compiler/samples/**'
+    exclude 'org/codehaus/janino/samples/**'
     exclude 'META-INF/maven/**'
-}
-task relocateShadowJar(type: ConfigureShadowRelocation) {
-    target = tasks.shadowJar
-    prefix = "solar.shadow"
+
+    enableRelocation true
+    relocationPrefix "solar.shadow"
 }
 remapJar {
-    classifier = 'fabric'
+    archiveClassifier = 'fabric'
 
     dependsOn shadowJar
     input.set shadowJar.archiveFile.get()
 
+    exclude 'org/codehaus/commons/compiler/samples/**'
+    exclude 'org/codehaus/janino/samples/**'
     exclude 'META-INF/maven/**'
 }
 artifacts {
     archives shadowJar
     shadow shadowJar
 }
-tasks.shadowJar.dependsOn tasks.relocateShadowJar
 tasks.shadowJar.finalizedBy tasks.remapJar
 
 javadoc {

@@ -16,5 +16,4 @@ public class ChunkMixin implements SolarChunk
     
     @Unique @Override public long getLastSolarTick() { return solar$lastSolarChunk; }
     @Unique @Override public void setLastSolarTick(long lastSolarTick) { this.solar$lastSolarChunk = lastSolarTick; }
-    @Unique @Override public void incrementSolarTick() { this.solar$lastSolarChunk++; }
 }

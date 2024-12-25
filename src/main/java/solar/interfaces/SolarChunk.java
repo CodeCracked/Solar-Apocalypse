@@ -7,5 +7,4 @@ public interface SolarChunk
     
     long getLastSolarTick();
     void setLastSolarTick(long lastSolarTick);
-    void incrementSolarTick();
 }
