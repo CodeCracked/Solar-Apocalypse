@@ -30,6 +30,7 @@ public class SolarPhases
             .with(LeavesBlock.class, original -> Blocks.AIR.getDefaultState());
     
     public static final SolarPhase PHASE_2 = new SolarPhase(1, 5, 2)
+            .with(Blocks.GRASS_BLOCK, Blocks.COARSE_DIRT.getDefaultState())
             .with(Blocks.DIRT, Blocks.COARSE_DIRT.getDefaultState())
             .with(Blocks.DIRT_PATH, Blocks.COARSE_DIRT.getDefaultState())
             .with(Blocks.WATER, Blocks.AIR.getDefaultState())
@@ -46,6 +47,7 @@ public class SolarPhases
             .with(Blocks.GRANITE, Blocks.COBBLESTONE.getDefaultState())
             .with(Blocks.DIORITE, Blocks.COBBLESTONE.getDefaultState())
             .with(Blocks.ANDESITE, Blocks.COBBLESTONE.getDefaultState())
+            .with(Blocks.TUFF, Blocks.COBBLESTONE.getDefaultState())
             .with(AbstractBlock.AbstractBlockState::isBurnable, original ->
             {
                 if (SolarApocalypseMod.RANDOM.nextFloat() < 0.25f) return Blocks.FIRE.getDefaultState();
