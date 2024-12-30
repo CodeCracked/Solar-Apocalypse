@@ -3,10 +3,11 @@ package solar;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.FireBlock;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.EntityAttributeInstance;
+import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
@@ -41,7 +42,7 @@ public final class SolarManager
         LoadedChunks.CHUNK_LOADED.register(SolarManager::onChunkLoaded);
         ServerTickEvents.START_WORLD_TICK.register(SolarManager::onWorldTick);
     }
-    
+
     public static void enable() { state.setEnabled(true); }
     public static void disable() { state.setEnabled(false); }
     public static void reset() { state.reset(); }
@@ -61,6 +62,18 @@ public final class SolarManager
                 if (key.getValue().equals(Identifier.ofVanilla("overworld"))) tick();
             });
         }
+    }
+    public static void onPlayerJoin(ServerPlayerEntity player)
+    {
+        EntityAttributeInstance maxHealth = player.getAttributes().getCustomInstance(EntityAttributes.MAX_HEALTH);
+        if (maxHealth.getBaseValue() == 10.0) return;
+        player.getAttributes().getCustomInstance(EntityAttributes.MAX_HEALTH).setBaseValue(10.0);
+        player.getAttributes().getCustomInstance(EntityAttributes.MAX_ABSORPTION).setBaseValue(30.0);
+        onPlayerSleep(player);
+    }
+    public static void onPlayerSleep(ServerPlayerEntity player)
+    {
+        player.setAbsorptionAmount(30.0f);
     }
     //endregion
     //region Ticking
@@ -108,7 +121,7 @@ public final class SolarManager
         // Get timing info
         int day = (int)(tick / 24000);
         tick += tickOffset;
-        
+
         // Iterate through phases
         for (SolarPhase phase : phases)
         {

@@ -4,9 +4,12 @@
   "package": "solar.mixins",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "BedBlockMixin",
     "ChunkMixin",
     "LivingEntityMixin",
+    "PlayerManagerMixin",
     "SerializedChunkMixin",
+    "ServerWorldMixin",
     "ThreadedAnvilChunkStorageMixin"
   ],
   "client": [
