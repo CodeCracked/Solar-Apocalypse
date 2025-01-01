@@ -43,7 +43,7 @@ public final class SolarCommand
     private static int tick(ServerCommandSource source, int amount)
     {
         source.getServer().getPlayerManager().broadcast(Text.literal("Advancing " + amount + " Solar Ticks...").formatted(Formatting.RED), false);
-        for (int i = 0; i < amount; i++) SolarManager.tick();
+        for (int i = 0; i < amount; i++) SolarManager.tick(source.getWorld());
         source.getServer().getPlayerManager().broadcast(Text.literal("Finished Solar Ticks.").formatted(Formatting.GREEN), false);
         return amount;
     }

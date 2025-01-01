@@ -21,6 +21,10 @@ public class ServerWorldMixin
     @Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/world/ServerWorld;wakeSleepingPlayers()V"))
     private void onSuccessfulSleep(BooleanSupplier shouldKeepTicking, CallbackInfo ci)
     {
-        for (ServerPlayerEntity player : players) SolarManager.onPlayerSleep(player);
+        for (ServerPlayerEntity player : players)
+        {
+            SolarManager.resetHealthAttributes(player);
+            SolarManager.resetHealth(player);
+        }
     }
 }

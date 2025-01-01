@@ -1,20 +1,37 @@
 package solar;
 
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.minecraft.block.BlockState;
+import net.minecraft.component.ComponentChanges;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributeInstance;
 import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.item.ItemStack;
+import net.minecraft.particle.ParticleEffect;
+import net.minecraft.particle.ParticleTypes;
+import net.minecraft.registry.Registries;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.command.TitleCommand;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.Rarity;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.GameMode;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.LightType;
 import net.minecraft.world.chunk.WorldChunk;
 import solar.interfaces.SolarChunk;
+import solar.interfaces.SolarItemEntity;
 import solar.phases.SolarPhase;
 import solar.phases.SolarPhases;
 import solar.world.LoadedChunks;
@@ -24,6 +41,16 @@ import java.util.Set;
 
 public final class SolarManager
 {
+    private static final ItemStack SOLAR_EMBER = new ItemStack(Registries.ITEM.getEntry(Identifier.ofVanilla("blaze_powder")).get(), 1, ComponentChanges.builder()
+            .add(DataComponentTypes.ITEM_NAME, Text.of("Solar Ember"))
+            .add(DataComponentTypes.RARITY, Rarity.RARE)
+            .build());
+    private static final ItemStack FLARE_SHARD = new ItemStack(Registries.ITEM.getEntry(Identifier.ofVanilla("fire_charge")).get(), 1, ComponentChanges.builder()
+            .add(DataComponentTypes.ITEM_NAME, Text.of("Flare Shard"))
+            .add(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true)
+            .add(DataComponentTypes.RARITY, Rarity.EPIC)
+            .build());
+
     private static final Set<Heightmap.Type> HEIGHTMAPS = Set.of(Heightmap.Type.WORLD_SURFACE, Heightmap.Type.MOTION_BLOCKING);
     private static final SolarPhase[] phases = new SolarPhase[]
     {
@@ -41,6 +68,7 @@ public final class SolarManager
         ServerWorldEvents.LOAD.register(SolarManager::onWorldLoaded);
         LoadedChunks.CHUNK_LOADED.register(SolarManager::onChunkLoaded);
         ServerTickEvents.START_WORLD_TICK.register(SolarManager::onWorldTick);
+        ServerPlayerEvents.AFTER_RESPAWN.register(SolarManager::onPlayerRespawn);
     }
 
     public static void enable() { state.setEnabled(true); }
@@ -59,30 +87,67 @@ public final class SolarManager
         {
             world.getDimensionEntry().getKey().ifPresent(key ->
             {
-                if (key.getValue().equals(Identifier.ofVanilla("overworld"))) tick();
+                if (key.getValue().equals(Identifier.ofVanilla("overworld"))) tick(world);
             });
         }
     }
     public static void onPlayerJoin(ServerPlayerEntity player)
     {
-        EntityAttributeInstance maxHealth = player.getAttributes().getCustomInstance(EntityAttributes.MAX_HEALTH);
-        if (maxHealth.getBaseValue() == 10.0) return;
-        player.getAttributes().getCustomInstance(EntityAttributes.MAX_HEALTH).setBaseValue(10.0);
-        player.getAttributes().getCustomInstance(EntityAttributes.MAX_ABSORPTION).setBaseValue(30.0);
-        onPlayerSleep(player);
+        if (player.getMaxAbsorption() == 0.0)
+        {
+            resetHealthAttributes(player);
+            resetHealth(player);
+        }
     }
-    public static void onPlayerSleep(ServerPlayerEntity player)
+    public static void onPlayerRespawn(ServerPlayerEntity oldPlayer, ServerPlayerEntity newPlayer, boolean alive)
     {
-        player.setAbsorptionAmount(30.0f);
+        state.removeLife(newPlayer);
+        if (state.getLives(newPlayer) <= 0)
+        {
+            newPlayer.changeGameMode(GameMode.SPECTATOR);
+            newPlayer.sendMessage(Text.of("You have run out of lives!").copy().formatted(Formatting.DARK_RED), true);
+        }
+        else
+        {
+            resetHealthAttributes(newPlayer);
+            resetHealth(newPlayer);
+        }
+    }
+    public static void resetHealthAttributes(ServerPlayerEntity player)
+    {
+        int lives = state.getLives(player);
+        player.getAttributes().getCustomInstance(EntityAttributes.MAX_HEALTH).setBaseValue(lives * 2.0);
+        player.getAttributes().getCustomInstance(EntityAttributes.MAX_ABSORPTION).setBaseValue(2.0 * (20 - lives));
+    }
+    public static void resetHealth(ServerPlayerEntity player)
+    {
+        player.setHealth(player.getMaxHealth());
+        player.setAbsorptionAmount(player.getMaxAbsorption());
     }
     //endregion
     //region Ticking
-    public static void tick()
+    public static void tick(ServerWorld world)
     {
         try
         {
-            if (state.getCurrentTick() % 24000 < 12000) for (WorldChunk chunk : LoadedChunks.loadedChunksIterator()) tickChunk(chunk);
-            else for (WorldChunk chunk : LoadedChunks.loadedChunksIterator()) ((SolarChunk)chunk).setLastSolarTick(state.getCurrentTick());
+            // Day Tick
+            if (state.getCurrentTick() % 24000 < 12000)
+            {
+                // Chunk Decay
+                for (WorldChunk chunk : LoadedChunks.loadedChunksIterator()) tickChunk(chunk);
+
+                // Solar Embers
+                if (SolarApocalypseMod.RANDOM.nextFloat() < GlobalConfig.EMBER_CHANCE) spawnEmber(world, true);
+            }
+
+            // Night Tick
+            else
+            {
+                // Update Chunk Tick Field
+                for (WorldChunk chunk : LoadedChunks.loadedChunksIterator()) ((SolarChunk)chunk).setLastSolarTick(state.getCurrentTick());
+            }
+
+            // Increment Solar Tick
             state.incrementTick();
         }
         catch (Exception e)
@@ -95,6 +160,51 @@ public final class SolarManager
     {
         performDecay(chunk, state.getCurrentTick(), chunk.getPos().hashCode());
         ((SolarChunk) chunk).setLastSolarTick(state.getCurrentTick());
+    }
+    //endregion
+    //region Embers
+    public static void spawnEmber(ServerWorld world, boolean isFlare)
+    {
+        ServerPlayerEntity nearPlayer = world.getRandomAlivePlayer();
+        if (nearPlayer == null) return;
+
+        int dx = SolarApocalypseMod.RANDOM.nextBetween(-GlobalConfig.EMBER_SPAWN_RADIUS, GlobalConfig.EMBER_SPAWN_RADIUS);
+        int dz = SolarApocalypseMod.RANDOM.nextBetween(-GlobalConfig.EMBER_SPAWN_RADIUS, GlobalConfig.EMBER_SPAWN_RADIUS);
+        int y = world.getTopYInclusive() + GlobalConfig.EMBER_SPAWN_HEIGHT;
+
+        ItemStack stack = SOLAR_EMBER;
+        if (isFlare && SolarApocalypseMod.RANDOM.nextFloat() < GlobalConfig.FLARE_SHARD_CHANCE) stack = FLARE_SHARD;
+        else isFlare = false;
+
+        ItemEntity ember = new ItemEntity(world, nearPlayer.getX() + dx, y, nearPlayer.getZ() + dz, stack.copy());
+        SolarItemEntity solarItem = (SolarItemEntity) ember;
+        solarItem.setDespawnTime(GlobalConfig.EMBER_DESPAWN_TIME);
+        if (isFlare) solarItem.markAsFlare();
+        else solarItem.markAsEmber();
+
+        ember.setVelocity(0, 0, 0);
+        world.spawnEntity(ember);
+    }
+    public static void createParticles(ServerWorld world, Vec3d pos, boolean ember, boolean flare, int vigorMultiplier)
+    {
+        if (ember || flare)
+        {
+            // Create Smoke Particles
+            ParticleEffect particle = ParticleTypes.SMOKE;
+            world.spawnParticles(particle, true, false, pos.x, pos.y, pos.z, 10 * vigorMultiplier, 0.0D, 0.0D, 0.0D, 0.01D * vigorMultiplier);
+        }
+        if (ember)
+        {
+            // Create Ember Particles
+            ParticleEffect particle = ParticleTypes.LAVA;
+            world.spawnParticles(particle, true, false, pos.x, pos.y, pos.z, 3 * vigorMultiplier, 0.1D * vigorMultiplier, 0.1D * vigorMultiplier, 0.1D * vigorMultiplier, 0.01D * vigorMultiplier * vigorMultiplier);
+        }
+        if (flare)
+        {
+            // Create Flare Particles
+            ParticleEffect particle = ParticleTypes.FLAME;
+            world.spawnParticles(particle, true, true, pos.x, pos.y, pos.z, 20 * vigorMultiplier, 0.0D, 0.0D, 0.0D, 0.06 * vigorMultiplier);
+        }
     }
     //endregion
     //region Decay
