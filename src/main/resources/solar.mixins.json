@@ -8,6 +8,7 @@
     "ChunkMixin",
     "ItemEntityMixin",
     "LivingEntityMixin",
+    "NetherPortalMixin",
     "PlayerManagerMixin",
     "SerializedChunkMixin",
     "ServerWorldMixin",
